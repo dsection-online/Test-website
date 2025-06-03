@@ -1,0 +1,209 @@
+<!DOCTYPE html><html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>InstaClone</title>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f3f3f3;
+    }
+    header {
+      background: #fff;
+      padding: 10px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    header h1 { margin: 0; font-size: 24px; }
+    .post-card {
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin: 15px;
+      padding: 10px;
+    }
+    .post-img {
+      width: 100%;
+      border-radius: 10px;
+    }
+    .comment-box, .new-post-box {
+      margin: 10px;
+    }
+    .bottom-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #fff;
+      text-align: center;
+      box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
+    }
+    .bottom-bar button {
+      background: #007bff;
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      margin: 10px;
+      border-radius: 50%;
+      font-size: 20px;
+    }
+    .profile-pic {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>InstaClone</h1>
+    <button onclick="goToProfile()">Profile</button>
+  </header>  <div id="postList"></div>  <div class="bottom-bar">
+    <button onclick="toggleNewPost()">+</button>
+  </div>  <div id="newPostForm" style="display:none; padding: 20px;">
+    <input type="file" id="postImageInput" accept="image/*"><br><br>
+    <textarea id="postCaption" placeholder="What's on your mind?"></textarea><br>
+    <button onclick="submitPost()">Post</button>
+    <button onclick="toggleNewPost()">Cancel</button>
+  </div>  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyD-...yourKey...",
+      authDomain: "your-project.firebaseapp.com",
+      projectId: "your-project",
+      storageBucket: "your-project.appspot.com",
+      messagingSenderId: "yourId",
+      appId: "yourAppId"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    const imgbbAPIKey = "71ef88052dfc0024174f337da163fd06";
+
+    auth.onAuthStateChanged(user => {
+      if (!user) window.location.href = 'login.html';
+      else loadPosts();
+    });
+
+    function goToProfile() {
+      window.location.href = 'profile.html';
+    }
+
+    function toggleNewPost() {
+      const form = document.getElementById("newPostForm");
+      form.style.display = form.style.display === "none" ? "block" : "none";
+    }
+
+    async function submitPost() {
+      const fileInput = document.getElementById("postImageInput");
+      const caption = document.getElementById("postCaption").value;
+      const file = fileInput.files[0];
+
+      if (!file) return alert("Please choose an image");
+
+      const formData = new FormData();
+      formData.append("image", file);
+
+      const res = await fetch(`https://api.imgbb.com/1/upload?key=${imgbbAPIKey}`, {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      const imageUrl = data.data.url;
+
+      const user = auth.currentUser;
+      const userProfile = await db.collection("users").doc(user.uid).get();
+      const { name, profileImage } = userProfile.data();
+
+      await db.collection("posts").add({
+        uid: user.uid,
+        username: name,
+        profileImage: profileImage,
+        imageUrl: imageUrl,
+        caption: caption,
+        likes: [],
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      document.getElementById("newPostForm").style.display = "none";
+      loadPosts();
+    }
+
+    async function loadPosts() {
+      const snap = await db.collection("posts").orderBy("timestamp", "desc").get();
+      const list = document.getElementById("postList");
+      list.innerHTML = "";
+
+      snap.forEach(doc => {
+        const post = doc.data();
+        const postHTML = `
+          <div class="post-card">
+            <div><img src="${post.profileImage}" class="profile-pic"> <strong>${post.username}</strong></div>
+            <img src="${post.imageUrl}" class="post-img">
+            <p>${post.caption}</p>
+            <button onclick="likePost('${doc.id}')"><i class="fa-solid fa-heart"></i> ${post.likes?.length || 0}</button>
+            <div class="comment-box">
+              <input type="text" id="comment-${doc.id}" placeholder="Add a comment...">
+              <button onclick="addComment('${doc.id}')">Post</button>
+            </div>
+            <div id="comments-${doc.id}"></div>
+          </div>`;
+        list.innerHTML += postHTML;
+        loadComments(doc.id);
+      });
+    }
+
+    async function likePost(postId) {
+      const user = auth.currentUser;
+      const ref = db.collection("posts").doc(postId);
+      const doc = await ref.get();
+      const likes = doc.data().likes || [];
+      if (!likes.includes(user.uid)) {
+        likes.push(user.uid);
+        await ref.update({ likes });
+        loadPosts();
+      }
+    }
+
+    async function addComment(postId) {
+      const input = document.getElementById(`comment-${postId}`);
+      const commentText = input.value;
+      if (!commentText) return;
+
+      const user = auth.currentUser;
+      const profile = await db.collection("users").doc(user.uid).get();
+      const { name, profileImage } = profile.data();
+
+      await db.collection("posts").doc(postId).collection("comments").add({
+        uid: user.uid,
+        username: name,
+        profileImage,
+        comment: commentText,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      input.value = "";
+      loadComments(postId);
+    }
+
+    async function loadComments(postId) {
+      const commentsDiv = document.getElementById(`comments-${postId}`);
+      const snap = await db.collection("posts").doc(postId).collection("comments").orderBy("timestamp").get();
+      commentsDiv.innerHTML = "";
+
+      snap.forEach(doc => {
+        const c = doc.data();
+        commentsDiv.innerHTML += `<div><img class="profile-pic" src="${c.profileImage}"> <strong>${c.username}</strong>: ${c.comment}</div>`;
+      });
+    }
+  </script></body>
+</html>

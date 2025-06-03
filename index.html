@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sign In</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: url('https://images.unsplash.com/photo-1446776811953-b23d57bd21aa') no-repeat center center fixed;
+      background-size: cover;
+      font-family: 'Segoe UI', sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+    .login-container {
+      background: rgba(0, 0, 0, 0.8);
+      padding: 30px;
+      border-radius: 20px;
+      max-width: 500px;
+      width: 90%;
+      color: white;
+      text-align: center;
+    }
+    h1 {
+      margin-bottom: 20px;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    .google {
+      background: white;
+      color: black;
+    }
+    .apple {
+      background: black;
+      color: white;
+    }
+    .phone, .guest, .email-login, .email-signup {
+      background: #333;
+      color: white;
+    }
+    input {
+      width: 90%;
+      padding: 10px;
+      margin: 5px 0;
+      border-radius: 8px;
+      border: none;
+    }
+    .logo-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    img.logo {
+      width: 20px;
+      height: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <h1>Sign In</h1>
+
+    <button class="google logo-btn" onclick="signInWithGoogle()">
+      <img src="https://img.icons8.com/color/48/google-logo.png" class="logo"/> Sign in with Google
+    </button>
+
+    <button class="apple logo-btn" onclick="signInWithApple()">
+      <img src="https://img.icons8.com/ios-filled/50/ffffff/mac-os.png" class="logo"/> Sign in with Apple
+    </button>
+
+    <button class="phone logo-btn" onclick="signInWithPhone()">
+      <img src="https://img.icons8.com/ios-filled/50/ffffff/phone.png" class="logo"/> Sign in with Phone
+    </button>
+
+    <input type="email" id="email" placeholder="Email">
+    <input type="password" id="password" placeholder="Password">
+
+    <button class="email-login logo-btn" onclick="signInWithEmail()">
+      <img src="https://img.icons8.com/ios-filled/50/ffffff/email.png" class="logo"/> Login with Email
+    </button>
+
+    <button class="email-signup logo-btn" onclick="signUpWithEmail()">
+      <img src="https://img.icons8.com/ios-filled/50/ffffff/add-user-group-man-man.png" class="logo"/> Sign Up with Email
+    </button>
+
+    <button class="guest logo-btn" onclick="signInAnonymously()">
+      <img src="https://img.icons8.com/ios-filled/50/ffffff/user.png" class="logo"/> Continue as Guest
+    </button>
+  </div>
+
+  <!-- Firebase SDKs -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import {
+      getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider,
+      OAuthProvider, signInAnonymously as anonLogin, signInWithPhoneNumber,
+      signInWithEmailAndPassword, createUserWithEmailAndPassword, RecaptchaVerifier
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyChLr_2O-NX9vquAgCkuNFILQmiMKzrl7U",
+      authDomain: "red-dragon-bc77b.firebaseapp.com",
+      projectId: "red-dragon-bc77b",
+      storageBucket: "red-dragon-bc77b.appspot.com",
+      messagingSenderId: "757926824845",
+      appId: "1:757926824845:web:5a6f9c31a553a37cbe0bc4"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        window.location.href = "dashboard.html";
+      }
+    });
+
+    window.signInWithGoogle = async () => {
+      const provider = new GoogleAuthProvider();
+      try {
+        await signInWithPopup(auth, provider);
+        window.location.href = "profile.html";
+      } catch (e) {
+        alert("Google Sign-In Failed: " + e.message);
+      }
+    };
+
+    window.signInWithApple = async () => {
+      const provider = new OAuthProvider('apple.com');
+      try {
+        await signInWithPopup(auth, provider);
+        window.location.href = "profile.html";
+      } catch (e) {
+        alert("Apple Sign-In Failed: " + e.message);
+      }
+    };
+
+    window.signInWithEmail = async () => {
+      const email = document.getElementById('email').value;
+      const pass = document.getElementById('password').value;
+      try {
+        await signInWithEmailAndPassword(auth, email, pass);
+        window.location.href = "profile.html";
+      } catch (e) {
+        alert("Login failed: " + e.message);
+      }
+    };
+
+    window.signUpWithEmail = async () => {
+      const email = document.getElementById('email').value;
+      const pass = document.getElementById('password').value;
+      try {
+        await createUserWithEmailAndPassword(auth, email, pass);
+        window.location.href = "profile.html";
+      } catch (e) {
+        alert("Signup failed: " + e.message);
+      }
+    };
+
+    window.signInAnonymously = async () => {
+      try {
+        const result = await anonLogin(auth);
+        const randomNum = Math.floor(Math.random() * 1000000);
+        result.user.displayName = `Guest${randomNum}`;
+        window.location.href = "profile.html";
+      } catch (e) {
+        alert("Guest login failed: " + e.message);
+      }
+    };
+
+    window.signInWithPhone = () => {
+      alert("Phone Sign-In requires reCAPTCHA setup and verification page. Not implemented here.");
+    };
+  </script>
+</body>
+</html>

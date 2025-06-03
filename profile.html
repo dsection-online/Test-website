@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Profile</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #121212;
+      font-family: 'Segoe UI', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      color: white;
+    }
+
+    .container {
+      background-color: #1e1e1e;
+      padding: 30px;
+      border-radius: 16px;
+      width: 90%;
+      max-width: 400px;
+      box-shadow: 0 0 10px rgba(255, 0, 0, 0.3);
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 25px;
+      font-size: 24px;
+      font-weight: bold;
+      gap: 10px;
+      color: #fff;
+    }
+
+    .header i {
+      color: red;
+    }
+
+    label {
+      display: block;
+      margin: 10px 0 5px;
+    }
+
+    input, textarea {
+      width: 100%;
+      padding: 10px;
+      background-color: #2c2c2c;
+      border: 1px solid #444;
+      border-radius: 8px;
+      color: white;
+    }
+
+    textarea {
+      resize: vertical;
+    }
+
+    #profilePicPreview {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      object-fit: cover;
+      display: block;
+      margin: 10px auto;
+    }
+
+    .button {
+      margin-top: 20px;
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      background-color: red;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .button:hover {
+      background-color: darkred;
+    }
+
+    input[type="file"] {
+      background: none;
+      color: white;
+      border: none;
+    }
+
+    .disabled {
+      background-color: #555 !important;
+      cursor: not-allowed !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header"><i class="fas fa-dragon"></i> Profile</div>
+
+    <label for="profilePic">Profile Picture</label>
+    <input type="file" id="profilePic" accept="image/*" onchange="previewProfilePic(event)">
+    <img id="profilePicPreview" src="https://via.placeholder.com/100" alt="Preview">
+
+    <label for="name">Name *</label>
+    <input type="text" id="name" placeholder="Enter your name" required>
+
+    <label for="bio">Bio</label>
+    <textarea id="bio" rows="3" placeholder="Tell us something about you..."></textarea>
+
+    <button class="button" id="saveBtn" onclick="saveProfile()">Save changes</button>
+  </div>
+
+  <script>
+    // Your Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyDYDtiy5nALCg0EvTdp7F6VjPBgKZmlJw4",
+      authDomain: "godzilla-login.firebaseapp.com",
+      projectId: "godzilla-login",
+      storageBucket: "godzilla-login.appspot.com",
+      messagingSenderId: "226145668709",
+      appId: "1:226145668709:web:697d1b967d7e3e89ed50eb"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+    const storage = firebase.storage();
+
+    function previewProfilePic(event) {
+      const file = event.target.files[0];
+      if (file) {
+        document.getElementById('profilePicPreview').src = URL.createObjectURL(file);
+      }
+    }
+
+    async function saveProfile() {
+      const user = auth.currentUser;
+      if (!user) return alert("Not logged in.");
+
+      if (user.isAnonymous) {
+        alert("Guest users cannot update profile.");
+        return;
+      }
+
+      const name = document.getElementById("name").value;
+      const bio = document.getElementById("bio").value;
+      const file = document.getElementById("profilePic").files[0];
+      const saveBtn = document.getElementById("saveBtn");
+
+      try {
+        saveBtn.disabled = true;
+        saveBtn.textContent = "Saving...";
+
+        let photoURL = user.photoURL;
+
+        if (file) {
+          const storageRef = storage.ref(`profile_pics/${user.uid}`);
+          await storageRef.put(file);
+          photoURL = await storageRef.getDownloadURL();
+        }
+
+        await user.updateProfile({ displayName: name, photoURL });
+
+        await db.collection("users").doc(user.uid).set({
+          name,
+          bio,
+          photoURL,
+          email: user.email || "guest",
+        });
+
+        alert("Profile updated!");
+        window.location.href = "dashboard.html";
+
+      } catch (error) {
+        console.error(error);
+        alert("Error saving profile.");
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = "Save changes";
+      }
+    }
+
+    auth.onAuthStateChanged(async (user) => {
+      if (!user) return window.location.href = "login.html";
+
+      document.getElementById("name").value = user.displayName || "";
+      document.getElementById("profilePicPreview").src = user.photoURL || "https://via.placeholder.com/100";
+
+      if (user.isAnonymous) {
+        document.getElementById("saveBtn").classList.add("disabled");
+        document.getElementById("saveBtn").disabled = true;
+        alert("Logged in as guest. Profile editing is disabled.");
+      }
+
+      const doc = await db.collection("users").doc(user.uid).get();
+      if (doc.exists && doc.data().bio) {
+        document.getElementById("bio").value = doc.data().bio;
+      }
+    });
+  </script>
+</body>
+</html>
