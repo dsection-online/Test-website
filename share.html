@@ -224,14 +224,16 @@
         document.querySelector('header button').textContent = "Logout";
         await loadUserProfile(currentUser.uid);
         if (!userProfile) {
+          console.log("No user profile found, showing profile creation modal.");
           toggleProfileModal(true); // Show profile creation if no profile exists
         } else {
+          console.log("User profile loaded:", userProfile.name);
           loadFeed(); // Load feed only if profile exists
         }
       } else {
         document.querySelector('header button').textContent = "Login";
         userProfile = null;
-        document.getElementById("feed").innerHTML = "Please login to see the feed.";
+        document.getElementById("feed").innerHTML = "<p style='text-align: center; margin-top: 20px;'>Please login to see the feed and create a profile.</p>";
       }
     });
 
@@ -296,7 +298,7 @@
           const uploadedUrl = await uploadImageToImgBB(profilePictureFile);
           profilePictureUrl = uploadedUrl;
         } catch (error) {
-          console.error("Error uploading profile picture:", error);
+          console.error("Error uploading profile picture to ImgBB:", error);
           alert("Failed to upload profile picture. Please try again.");
           return;
         }
@@ -307,13 +309,13 @@
           name: profileName,
           profilePictureUrl: profilePictureUrl,
           uid: currentUser.uid
-        }, { merge: true });
+        }, { merge: true }); // Use merge: true to avoid overwriting other fields if they exist
         userProfile = { name: profileName, profilePictureUrl: profilePictureUrl, uid: currentUser.uid };
         alert("Profile saved successfully!");
         toggleProfileModal(false);
         loadFeed(); // Reload feed after profile is created/updated
       } catch (error) {
-        console.error("Error saving profile:", error);
+        console.error("Error saving profile to Firestore:", error);
         alert("Failed to save profile. Please try again.");
       }
     });
@@ -387,7 +389,7 @@
           imageUrl: imageUrl,
           likes: 0,
           dislikes: 0,
-          comments: [],
+          comments: [], // Ensure comments array is initialized
           timestamp: firebase.firestore.FieldValue.serverTimestamp()
         });
 
@@ -410,8 +412,11 @@
 
       if (snapshot.empty && currentUser && userProfile) {
           feed.innerHTML = "<p style='text-align: center; margin-top: 20px;'>No posts yet. Be the first to share something!</p>";
-      } else if (!currentUser || !userProfile) {
-          feed.innerHTML = "<p style='text-align: center; margin-top: 20px;'>Please login and create your profile to see the feed.</p>";
+      } else if (!currentUser) { // If user is not logged in
+          feed.innerHTML = "<p style='text-align: center; margin-top: 20px;'>Please login to see the feed.</p>";
+          return;
+      } else if (currentUser && !userProfile) { // If user is logged in but no profile
+          feed.innerHTML = "<p style='text-align: center; margin-top: 20px;'>Please create your profile to see the feed.</p>";
           return;
       }
 
@@ -435,7 +440,7 @@
             </div>
             <div class="comments-section" id="comments-section-${postId}">
               <h4>Comments:</h4>
-              ${post.comments.map(comment => `<p class="comment"><strong>${comment.userName || 'Guest'}:</strong> ${comment.text}</p>`).join('')}
+              ${(post.comments || []).map(comment => `<p class="comment"><strong>${comment.userName || 'Guest'}:</strong> ${comment.text}</p>`).join('')}
               <div class="add-comment">
                 <input type="text" id="commentInput-${postId}" placeholder="Add a comment...">
                 <button onclick="addComment('${postId}')">Post</button>
@@ -453,19 +458,21 @@
         return;
       }
       const postRef = db.collection("posts").doc(postId);
-      await db.runTransaction(async (transaction) => {
-        const postDoc = await transaction.get(postRef);
-        if (!postDoc.exists) {
-          throw "Document does not exist!";
-        }
-        const newLikes = (postDoc.data().likes || 0) + 1;
-        transaction.update(postRef, { likes: newLikes });
-      }).then(() => {
+      try {
+        await db.runTransaction(async (transaction) => {
+          const postDoc = await transaction.get(postRef);
+          if (!postDoc.exists) {
+            throw "Document does not exist!";
+          }
+          const newLikes = (postDoc.data().likes || 0) + 1;
+          transaction.update(postRef, { likes: newLikes });
+        });
         document.getElementById(`likes-${postId}`).textContent = parseInt(document.getElementById(`likes-${postId}`).textContent) + 1;
-      }).catch((error) => {
-        console.error("Transaction failed: ", error);
-        alert("Failed to like post. Please try again.");
-      });
+        console.log(`Post ${postId} liked successfully.`);
+      } catch (error) {
+        console.error("Error liking post:", error);
+        alert("Failed to like post. Please try again. Check console for details.");
+      }
     }
 
     async function handleDislike(postId) {
@@ -474,22 +481,25 @@
         return;
       }
       const postRef = db.collection("posts").doc(postId);
-      await db.runTransaction(async (transaction) => {
-        const postDoc = await transaction.get(postRef);
-        if (!postDoc.exists) {
-          throw "Document does not exist!";
-        }
-        const newDislikes = (postDoc.data().dislikes || 0) + 1;
-        transaction.update(postRef, { dislikes: newDislikes });
-      }).then(() => {
+      try {
+        await db.runTransaction(async (transaction) => {
+          const postDoc = await transaction.get(postRef);
+          if (!postDoc.exists) {
+            throw "Document does not exist!";
+          }
+          const newDislikes = (postDoc.data().dislikes || 0) + 1;
+          transaction.update(postRef, { dislikes: newDislikes });
+        });
         document.getElementById(`dislikes-${postId}`).textContent = parseInt(document.getElementById(`dislikes-${postId}`).textContent) + 1;
-      }).catch((error) => {
-        console.error("Transaction failed: ", error);
-        alert("Failed to dislike post. Please try again.");
-      });
+        console.log(`Post ${postId} disliked successfully.`);
+      } catch (error) {
+        console.error("Error disliking post:", error);
+        alert("Failed to dislike post. Please try again. Check console for details.");
+      }
     }
 
     async function addComment(postId) {
+      // 1. Ensure user is logged in and has a profile
       if (!currentUser || !userProfile) {
         alert("Please login and create a profile to add comments.");
         return;
@@ -498,6 +508,7 @@
       const commentInput = document.getElementById(`commentInput-${postId}`);
       const commentText = commentInput.value.trim();
 
+      // 2. Validate comment text
       if (!commentText) {
         alert("Comment cannot be empty.");
         return;
@@ -505,6 +516,7 @@
 
       const postRef = db.collection("posts").doc(postId);
       try {
+        // 3. Attempt to update the Firestore document
         await postRef.update({
           comments: firebase.firestore.FieldValue.arrayUnion({
             userId: currentUser.uid,
@@ -513,16 +525,25 @@
             timestamp: firebase.firestore.FieldValue.serverTimestamp()
           })
         });
+
+        // 4. On success: clear input and reload feed
         commentInput.value = ""; // Clear the input field
+        console.log(`Comment added successfully to post ${postId}.`);
         loadFeed(); // Reload feed to show new comment
       } catch (error) {
-        console.error("Error adding comment:", error);
-        alert("Failed to add comment. Please try again.");
+        // 5. On error: log detailed error and alert user
+        console.error("--- Error adding comment to Firestore ---");
+        console.error("Post ID:", postId);
+        console.error("User ID:", currentUser.uid);
+        console.error("User Name:", userProfile.name);
+        console.error("Comment Text:", commentText);
+        console.error("Full error object:", error);
+        alert("Failed to add comment. Please check the browser console for details.");
       }
     }
 
-    // Initial load of the feed (will be empty or show login prompt if not logged in)
-    // The feed will fully load after successful authentication and profile creation.
+    // Initial call to load feed when the page loads.
+    // It will prompt for login/profile if not already set.
     loadFeed();
   </script>
 </body>
