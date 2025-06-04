@@ -100,7 +100,6 @@
     </button>
   </div>
 
-  <!-- Firebase SDKs -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import {
@@ -121,9 +120,17 @@
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
 
+    // This listener handles redirection for users who are ALREADY logged in
+    // when they land on the sign-in page.
+    // It prevents showing the sign-in page to an already authenticated user.
     onAuthStateChanged(auth, (user) => {
-      if (user) {
-        window.location.href = "dashboard.html";
+      // Check if the user is authenticated AND if the current page is a sign-in page.
+      // Adjust 'index.html' or '/' to match your actual sign-in page filename if different.
+      const isOnSignInPage = window.location.pathname.endsWith('index.html') || window.location.pathname === '/';
+
+      if (user && isOnSignInPage) {
+        // Redirect to dashboard.html if user is logged in and on the sign-in page
+        window.location.href = "dashboard.html"; // Or your main feed/home page
       }
     });
 
@@ -131,9 +138,11 @@
       const provider = new GoogleAuthProvider();
       try {
         await signInWithPopup(auth, provider);
+        // After successful sign-in, redirect directly to profile.html
         window.location.href = "profile.html";
       } catch (e) {
         alert("Google Sign-In Failed: " + e.message);
+        console.error("Google Sign-In Error:", e); // Log detailed error for debugging
       }
     };
 
@@ -144,6 +153,7 @@
         window.location.href = "profile.html";
       } catch (e) {
         alert("Apple Sign-In Failed: " + e.message);
+        console.error("Apple Sign-In Error:", e);
       }
     };
 
@@ -155,6 +165,7 @@
         window.location.href = "profile.html";
       } catch (e) {
         alert("Login failed: " + e.message);
+        console.error("Email Login Error:", e);
       }
     };
 
@@ -166,22 +177,25 @@
         window.location.href = "profile.html";
       } catch (e) {
         alert("Signup failed: " + e.message);
+        console.error("Email Signup Error:", e);
       }
     };
 
     window.signInAnonymously = async () => {
       try {
-        const result = await anonLogin(auth);
-        const randomNum = Math.floor(Math.random() * 1000000);
-        result.user.displayName = `Guest${randomNum}`;
+        await anonLogin(auth);
+        // For anonymous users, you might want to create a temporary profile name in Firestore
+        // or prompt for a name on the profile.html page.
+        // Assigning displayName here won't persist across sessions without more effort.
         window.location.href = "profile.html";
       } catch (e) {
         alert("Guest login failed: " + e.message);
+        console.error("Anonymous Sign-In Error:", e);
       }
     };
 
     window.signInWithPhone = () => {
-      alert("Phone Sign-In requires reCAPTCHA setup and verification page. Not implemented here.");
+      alert("Phone Sign-In requires reCAPTCHA setup and verification page. It is not fully implemented in this example.");
     };
   </script>
 </body>
