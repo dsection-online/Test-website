@@ -5,11 +5,10 @@
   <title>Red Dragon Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <!-- Firebase -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import {
-      getFirestore, collection, getDocs
+      getFirestore, collection, getDocs, doc, getDoc // Added doc and getDoc
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
     import {
       getAuth, onAuthStateChanged, signOut
@@ -30,12 +29,12 @@
 
     let currentUser = null;
 
-    onAuthStateChanged(auth, (user) => {
+    onAuthStateChanged(auth, async (user) => { // Made async to await Firestore call
       if (!user) {
-        window.location.href = "login.html";
+        window.location.href = "index.html"; // Redirect to your login page
       } else {
         currentUser = user;
-        displayUser(user);
+        await displayUser(user); // Await the displayUser function
         loadRandomStory();
       }
     });
@@ -51,14 +50,33 @@
           <img src="${story.imageURL}" alt="Story Image" style="width: 100%; border-radius: 10px;" />
           <p>${story.content}</p>
         `;
+      } else {
+          document.getElementById("storyBox").innerHTML = `<p>No stories available.</p>`;
       }
     }
 
-    function displayUser(user) {
+    async function displayUser(user) {
       const container = document.getElementById("userInfo");
-      const name = user.displayName || "Guest " + user.uid.slice(0, 5);
-      const email = user.email || "Anonymous";
-      const photo = user.photoURL || "https://cdn-icons-png.flaticon.com/512/9131/9131529.png";
+      let name = user.displayName || "Guest " + user.uid.slice(0, 5);
+      let email = user.email || "Anonymous";
+      let photo = user.photoURL || "https://cdn-icons-png.flaticon.com/512/9131/9131529.png"; // Default placeholder
+
+      try {
+        // Try to fetch profile from Firestore
+        const profileDocRef = doc(db, "profile", user.uid);
+        const profileSnap = await getDoc(profileDocRef);
+
+        if (profileSnap.exists()) {
+          const profileData = profileSnap.data();
+          name = profileData.name;
+          photo = profileData.imageUrl;
+          // Email can still come from Auth if not stored in profile, or override if stored
+          email = profileData.email || user.email || "Anonymous";
+        }
+      } catch (error) {
+        console.error("Error fetching user profile from Firestore:", error);
+        // Fallback to Auth details if Firestore fetch fails
+      }
 
       container.innerHTML = `
         <img src="${photo}" alt="Profile" />
@@ -71,7 +89,7 @@
 
     window.logout = () => {
       signOut(auth).then(() => {
-        window.location.href = "login.html";
+        window.location.href = "index.html"; // Ensure this matches your login page name
       });
     };
   </script>
@@ -141,21 +159,18 @@
       left: 0;
     }
 
-    .sidebar a {
-      color: white;
-      display: block;
-      padding: 10px 0;
-      text-decoration: none;
-    }
-
     .sidebar-toggle {
       position: absolute;
-      top: 0px;
-      left: 0px;
+      top: 10px; /* Adjusted top for better centering */
+      left: 15px; /* Adjusted left for better centering */
       z-index: 1100;
       cursor: pointer;
-      width: 30px
-      length:30px;
+      font-size: 30px; /* Made the font size bigger for the "☰" */
+      color: white; /* Ensure visibility */
+      padding: 5px; /* Add some padding */
+      background: #1e1e1e; /* Match topbar background */
+      border-radius: 5px; /* Slightly rounded corners */
+      line-height: 1; /* Adjust line height to center text */
     }
 
     .user-box {
@@ -199,7 +214,7 @@
 
     .grid {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); /* More responsive grid */
       gap: 20px;
       padding: 20px;
     }
@@ -244,7 +259,7 @@
   </div>
 
   <div class="user-box" id="userInfo">
-    <!-- User info will appear here -->
+    <p>Loading user info...</p>
   </div>
 
   <div class="carousel">
