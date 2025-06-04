@@ -1,209 +1,529 @@
-<!DOCTYPE html><html lang="en">
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>InstaClone</title>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <style>
+    * {
+      box-sizing: border-box;
+    }
     body {
+      font-family: sans-serif;
       margin: 0;
-      font-family: Arial, sans-serif;
-      background: #f3f3f3;
+      background: #fafafa;
     }
     header {
       background: #fff;
-      padding: 10px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      padding: 10px 16px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-    }
-    header h1 { margin: 0; font-size: 24px; }
-    .post-card {
-      background: white;
-      border-radius: 10px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      margin: 15px;
-      padding: 10px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
     }
-    .post-img {
+    header h1 {
+      margin: 0;
+      font-size: 20px;
+    }
+    .feed {
+      max-width: 600px;
+      margin: 0 auto;
+      padding-bottom: 80px;
+    }
+    .post {
+      background: #fff;
+      margin: 16px 0;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .post img {
       width: 100%;
-      border-radius: 10px;
+      display: block;
     }
-    .comment-box, .new-post-box {
-      margin: 10px;
+    .post .content {
+      padding: 8px 12px;
     }
+    .post .actions {
+      display: flex;
+      gap: 10px;
+      padding: 0 12px 8px;
+      align-items: center;
+    }
+    .post .actions button {
+      background: none;
+      border: none;
+      font-size: 20px;
+      cursor: pointer;
+    }
+    .post .comments-section {
+      padding: 0 12px 8px;
+    }
+    .post .comment {
+      margin-bottom: 4px;
+      font-size: 14px;
+    }
+    .post .add-comment {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .post .add-comment input {
+      flex-grow: 1;
+      padding: 6px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    .post .add-comment button {
+      background: #d32f2f;
+      color: #fff;
+      border: none;
+      padding: 6px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
     .bottom-bar {
       position: fixed;
       bottom: 0;
-      left: 0;
-      right: 0;
+      width: 100%;
       background: #fff;
-      text-align: center;
-      box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      padding: 8px 0;
+      box-shadow: 0 -1px 5px rgba(0,0,0,0.1);
     }
     .bottom-bar button {
-      background: #007bff;
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+    }
+    #addPostBtn {
+      background: #d32f2f;
+      color: #fff;
+      border-radius: 50%;
+      width: 56px;
+      height: 56px;
+      font-size: 30px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      margin-top: -28px;
+    }
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.4);
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+    }
+    .modal-content {
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-width: 90%;
+      width: 400px;
+    }
+    .modal-content input[type="text"],
+    .modal-content input[type="file"] {
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    .modal-content button {
+      background: #d32f2f;
       color: #fff;
       border: none;
-      padding: 10px 20px;
-      margin: 10px;
-      border-radius: 50%;
-      font-size: 20px;
+      padding: 10px 15px;
+      border-radius: 4px;
+      cursor: pointer;
     }
-    .profile-pic {
-      width: 30px;
-      height: 30px;
+    #profileImagePreview {
+      width: 100px;
+      height: 100px;
       border-radius: 50%;
-      margin-right: 8px;
-      vertical-align: middle;
+      object-fit: cover;
+      margin: 0 auto 10px;
+      display: block;
+      border: 1px solid #ddd;
     }
   </style>
 </head>
 <body>
   <header>
     <h1>InstaClone</h1>
-    <button onclick="goToProfile()">Profile</button>
-  </header>  <div id="postList"></div>  <div class="bottom-bar">
-    <button onclick="toggleNewPost()">+</button>
-  </div>  <div id="newPostForm" style="display:none; padding: 20px;">
-    <input type="file" id="postImageInput" accept="image/*"><br><br>
-    <textarea id="postCaption" placeholder="What's on your mind?"></textarea><br>
-    <button onclick="submitPost()">Post</button>
-    <button onclick="toggleNewPost()">Cancel</button>
-  </div>  <script>
+    <button onclick="signIn()">Login</button>
+  </header>
+
+  <div class="feed" id="feed"></div>
+
+  <div class="bottom-bar">
+    <button onclick="loadFeed()"><span class="material-icons">home</span></button>
+    <button id="addPostBtn" onclick="togglePostModal()">+</button>
+    <button onclick="viewProfile()"><span class="material-icons">person</span></button>
+  </div>
+
+  <div id="createPostModal" class="modal" onclick="event.target.id==='createPostModal' && togglePostModal()">
+    <form id="postForm" class="modal-content">
+      <h2>Create New Post</h2>
+      <input type="text" id="caption" placeholder="Caption" required>
+      <input type="file" id="imageInput" accept="image/*" required>
+      <button type="submit">Post</button>
+    </form>
+  </div>
+
+  <div id="profileCreatorModal" class="modal" onclick="event.target.id==='profileCreatorModal' && toggleProfileModal()">
+    <form id="profileForm" class="modal-content">
+      <h2>Create Your Profile</h2>
+      <img id="profileImagePreview" src="" alt="Profile Preview" style="display: none;">
+      <input type="text" id="profileName" placeholder="Your Name" required>
+      <input type="file" id="profilePictureInput" accept="image/*">
+      <button type="submit">Save Profile</button>
+    </form>
+  </div>
+
+  <script>
     const firebaseConfig = {
       apiKey: "AIzaSyChLr_2O-NX9vquAgCkuNFILQmiMKzrl7U",
-    authDomain: "red-dragon-bc77b.firebaseapp.com",
-    projectId: "red-dragon-bc77b",
-    storageBucket: "red-dragon-bc77b.appspot.com",
-    messagingSenderId: "757926824845",
-    appId: "1:757926824845:web:5a6f9c31a553a37cbe0bc4"
+      authDomain: "red-dragon-bc77b.firebaseapp.com",
+      projectId: "red-dragon-bc77b",
+      storageBucket: "red-dragon-bc77b.appspot.com",
+      messagingSenderId: "757926824845",
+      appId: "1:757926824845:web:5a6f9c31a553a37cbe0bc4"
     };
     firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
     const db = firebase.firestore();
+    const auth = firebase.auth();
+    const IMGBB_API_KEY = "7d216f815f24175d37595359be14a72d"; // Your ImgBB API Key
+    let currentUser = null;
+    let userProfile = null;
 
-    const imgbbAPIKey = "71ef88052dfc0024174f337da163fd06";
+    // --- Authentication and Profile Management ---
 
-    auth.onAuthStateChanged(user => {
-      if (!user) window.location.href = 'index.html';
-      else loadPosts();
+    auth.onAuthStateChanged(async (user) => {
+      currentUser = user;
+      if (currentUser) {
+        document.querySelector('header button').textContent = "Logout";
+        await loadUserProfile(currentUser.uid);
+        if (!userProfile) {
+          toggleProfileModal(true); // Show profile creation if no profile exists
+        } else {
+          loadFeed(); // Load feed only if profile exists
+        }
+      } else {
+        document.querySelector('header button').textContent = "Login";
+        userProfile = null;
+        document.getElementById("feed").innerHTML = "Please login to see the feed.";
+      }
     });
 
-    function goToProfile() {
-      window.location.href = 'profile.html';
-    }
-
-    function toggleNewPost() {
-      const form = document.getElementById("newPostForm");
-      form.style.display = form.style.display === "none" ? "block" : "none";
-    }
-
-    async function submitPost() {
-      const fileInput = document.getElementById("postImageInput");
-      const caption = document.getElementById("postCaption").value;
-      const file = fileInput.files[0];
-
-      if (!file) return alert("Please choose an image");
-
-      const formData = new FormData();
-      formData.append("image", file);
-
-      const res = await fetch(`https://api.imgbb.com/1/upload?key=${71ef88052dfc0024174f337da163fd06}`, {
-        method: 'POST',
-        body: formData
-      });
-      const data = await res.json();
-      const imageUrl = data.data.url;
-
-      const user = auth.currentUser;
-      const userProfile = await db.collection("users").doc(user.uid).get();
-      const { name, profileImage } = userProfile.data();
-
-      await db.collection("posts").add({
-        uid: user.uid,
-        username: name,
-        profileImage: profileImage,
-        imageUrl: imageUrl,
-        caption: caption,
-        likes: [],
-        timestamp: firebase.firestore.FieldValue.serverTimestamp()
-      });
-
-      document.getElementById("newPostForm").style.display = "none";
-      loadPosts();
-    }
-
-    async function loadPosts() {
-      const snap = await db.collection("posts").orderBy("timestamp", "desc").get();
-      const list = document.getElementById("postList");
-      list.innerHTML = "";
-
-      snap.forEach(doc => {
-        const post = doc.data();
-        const postHTML = `
-          <div class="post-card">
-            <div><img src="${post.profileImage}" class="profile-pic"> <strong>${post.username}</strong></div>
-            <img src="${post.imageUrl}" class="post-img">
-            <p>${post.caption}</p>
-            <button onclick="likePost('${doc.id}')"><i class="fa-solid fa-heart"></i> ${post.likes?.length || 0}</button>
-            <div class="comment-box">
-              <input type="text" id="comment-${doc.id}" placeholder="Add a comment...">
-              <button onclick="addComment('${doc.id}')">Post</button>
-            </div>
-            <div id="comments-${doc.id}"></div>
-          </div>`;
-        list.innerHTML += postHTML;
-        loadComments(doc.id);
-      });
-    }
-
-    async function likePost(postId) {
-      const user = auth.currentUser;
-      const ref = db.collection("posts").doc(postId);
-      const doc = await ref.get();
-      const likes = doc.data().likes || [];
-      if (!likes.includes(user.uid)) {
-        likes.push(user.uid);
-        await ref.update({ likes });
-        loadPosts();
+    function signIn() {
+      if (currentUser) {
+        auth.signOut();
+        alert("Signed out!");
+      } else {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        auth.signInWithPopup(provider).catch(error => {
+          console.error("Error during sign-in:", error);
+          alert("Failed to sign in. Please try again.");
+        });
       }
     }
 
+    async function loadUserProfile(uid) {
+      const userDoc = await db.collection("users").doc(uid).get();
+      if (userDoc.exists) {
+        userProfile = userDoc.data();
+      } else {
+        userProfile = null; // No profile found
+      }
+    }
+
+    function toggleProfileModal(show = false) {
+      const modal = document.getElementById("profileCreatorModal");
+      modal.style.display = show ? "flex" : "none";
+      if (!show) {
+        document.getElementById("profileForm").reset();
+        document.getElementById("profileImagePreview").style.display = 'none';
+        document.getElementById("profileImagePreview").src = '';
+      }
+    }
+
+    document.getElementById("profilePictureInput").addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const preview = document.getElementById("profileImagePreview");
+          preview.src = event.target.result;
+          preview.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    document.getElementById("profileForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!currentUser) {
+        alert("Please login first to create a profile.");
+        return;
+      }
+
+      const profileName = document.getElementById("profileName").value;
+      const profilePictureFile = document.getElementById("profilePictureInput").files[0];
+      let profilePictureUrl = userProfile?.profilePictureUrl || ""; // Keep existing if not uploading new
+
+      if (profilePictureFile) {
+        try {
+          const uploadedUrl = await uploadImageToImgBB(profilePictureFile);
+          profilePictureUrl = uploadedUrl;
+        } catch (error) {
+          console.error("Error uploading profile picture:", error);
+          alert("Failed to upload profile picture. Please try again.");
+          return;
+        }
+      }
+
+      try {
+        await db.collection("users").doc(currentUser.uid).set({
+          name: profileName,
+          profilePictureUrl: profilePictureUrl,
+          uid: currentUser.uid
+        }, { merge: true });
+        userProfile = { name: profileName, profilePictureUrl: profilePictureUrl, uid: currentUser.uid };
+        alert("Profile saved successfully!");
+        toggleProfileModal(false);
+        loadFeed(); // Reload feed after profile is created/updated
+      } catch (error) {
+        console.error("Error saving profile:", error);
+        alert("Failed to save profile. Please try again.");
+      }
+    });
+
+    function viewProfile() {
+      if (currentUser) {
+        // Here you could navigate to a dedicated profile page
+        // For simplicity, we'll just show the profile creator modal to allow editing
+        toggleProfileModal(true);
+        if (userProfile) {
+          document.getElementById("profileName").value = userProfile.name;
+          if (userProfile.profilePictureUrl) {
+            document.getElementById("profileImagePreview").src = userProfile.profilePictureUrl;
+            document.getElementById("profileImagePreview").style.display = 'block';
+          }
+        }
+      } else {
+        alert("Please login to view your profile.");
+      }
+    }
+
+    // --- Post Creation ---
+
+    function togglePostModal() {
+      const modal = document.getElementById("createPostModal");
+      modal.style.display = modal.style.display === "flex" ? "none" : "flex";
+      if (modal.style.display === "none") {
+        document.getElementById("postForm").reset();
+      }
+    }
+
+    async function uploadImageToImgBB(file) {
+      const formData = new FormData();
+      formData.append("image", file);
+      formData.append("key", IMGBB_API_KEY);
+
+      const res = await fetch("https://api.imgbb.com/1/upload", {
+        method: "POST",
+        body: formData
+      });
+      const data = await res.json();
+      if (data.data && data.data.url) {
+        return data.data.url;
+      } else {
+        throw new Error("ImgBB upload failed: " + (data.error?.message || "Unknown error"));
+      }
+    }
+
+    document.getElementById("postForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!currentUser || !userProfile) {
+        alert("Please login and create a profile before posting.");
+        return;
+      }
+
+      const caption = document.getElementById("caption").value;
+      const file = document.getElementById("imageInput").files[0];
+      if (!file) {
+        alert("Please select an image for your post.");
+        return;
+      }
+
+      try {
+        const imageUrl = await uploadImageToImgBB(file);
+
+        await db.collection("posts").add({
+          userId: currentUser.uid,
+          userName: userProfile.name,
+          userProfilePicture: userProfile.profilePictureUrl,
+          caption: caption,
+          imageUrl: imageUrl,
+          likes: 0,
+          dislikes: 0,
+          comments: [],
+          timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        alert("Post created successfully!");
+        togglePostModal();
+        loadFeed();
+      } catch (error) {
+        console.error("Error creating post:", error);
+        alert("Failed to create post. Please try again.");
+      }
+    });
+
+    // --- Feed Loading and Interactions (Likes, Dislikes, Comments) ---
+
+    async function loadFeed() {
+      const feed = document.getElementById("feed");
+      feed.innerHTML = "";
+      // Order by timestamp in descending order to show newest posts first
+      const snapshot = await db.collection("posts").orderBy("timestamp", "desc").get();
+
+      if (snapshot.empty && currentUser && userProfile) {
+          feed.innerHTML = "<p style='text-align: center; margin-top: 20px;'>No posts yet. Be the first to share something!</p>";
+      } else if (!currentUser || !userProfile) {
+          feed.innerHTML = "<p style='text-align: center; margin-top: 20px;'>Please login and create your profile to see the feed.</p>";
+          return;
+      }
+
+
+      snapshot.forEach(doc => {
+        const post = doc.data();
+        const postId = doc.id;
+        const div = document.createElement("div");
+        div.className = "post";
+        div.innerHTML = `
+          <div class="content">
+            <div style="display: flex; align-items: center; margin-bottom: 8px;">
+              <img src="${post.userProfilePicture || 'https://via.placeholder.com/30'}" alt="profile" style="width: 30px; height: 30px; border-radius: 50%; margin-right: 8px;">
+              <strong>${post.userName || "Unknown User"}</strong>
+            </div>
+            <img src="${post.imageUrl}" alt="post">
+            <p>${post.caption}</p>
+            <div class="actions">
+              <button onclick="handleLike('${postId}')">❤️ <span id="likes-${postId}">${post.likes}</span></button>
+              <button onclick="handleDislike('${postId}')">💔 <span id="dislikes-${postId}">${post.dislikes}</span></button>
+            </div>
+            <div class="comments-section" id="comments-section-${postId}">
+              <h4>Comments:</h4>
+              ${post.comments.map(comment => `<p class="comment"><strong>${comment.userName || 'Guest'}:</strong> ${comment.text}</p>`).join('')}
+              <div class="add-comment">
+                <input type="text" id="commentInput-${postId}" placeholder="Add a comment...">
+                <button onclick="addComment('${postId}')">Post</button>
+              </div>
+            </div>
+          </div>
+        `;
+        feed.appendChild(div);
+      });
+    }
+
+    async function handleLike(postId) {
+      if (!currentUser || !userProfile) {
+        alert("Please login and create a profile to like posts.");
+        return;
+      }
+      const postRef = db.collection("posts").doc(postId);
+      await db.runTransaction(async (transaction) => {
+        const postDoc = await transaction.get(postRef);
+        if (!postDoc.exists) {
+          throw "Document does not exist!";
+        }
+        const newLikes = (postDoc.data().likes || 0) + 1;
+        transaction.update(postRef, { likes: newLikes });
+      }).then(() => {
+        document.getElementById(`likes-${postId}`).textContent = parseInt(document.getElementById(`likes-${postId}`).textContent) + 1;
+      }).catch((error) => {
+        console.error("Transaction failed: ", error);
+        alert("Failed to like post. Please try again.");
+      });
+    }
+
+    async function handleDislike(postId) {
+      if (!currentUser || !userProfile) {
+        alert("Please login and create a profile to dislike posts.");
+        return;
+      }
+      const postRef = db.collection("posts").doc(postId);
+      await db.runTransaction(async (transaction) => {
+        const postDoc = await transaction.get(postRef);
+        if (!postDoc.exists) {
+          throw "Document does not exist!";
+        }
+        const newDislikes = (postDoc.data().dislikes || 0) + 1;
+        transaction.update(postRef, { dislikes: newDislikes });
+      }).then(() => {
+        document.getElementById(`dislikes-${postId}`).textContent = parseInt(document.getElementById(`dislikes-${postId}`).textContent) + 1;
+      }).catch((error) => {
+        console.error("Transaction failed: ", error);
+        alert("Failed to dislike post. Please try again.");
+      });
+    }
+
     async function addComment(postId) {
-      const input = document.getElementById(`comment-${postId}`);
-      const commentText = input.value;
-      if (!commentText) return;
+      if (!currentUser || !userProfile) {
+        alert("Please login and create a profile to add comments.");
+        return;
+      }
 
-      const user = auth.currentUser;
-      const profile = await db.collection("users").doc(user.uid).get();
-      const { name, profileImage } = profile.data();
+      const commentInput = document.getElementById(`commentInput-${postId}`);
+      const commentText = commentInput.value.trim();
 
-      await db.collection("posts").doc(postId).collection("comments").add({
-        uid: user.uid,
-        username: name,
-        profileImage,
-        comment: commentText,
-        timestamp: firebase.firestore.FieldValue.serverTimestamp()
-      });
+      if (!commentText) {
+        alert("Comment cannot be empty.");
+        return;
+      }
 
-      input.value = "";
-      loadComments(postId);
+      const postRef = db.collection("posts").doc(postId);
+      try {
+        await postRef.update({
+          comments: firebase.firestore.FieldValue.arrayUnion({
+            userId: currentUser.uid,
+            userName: userProfile.name,
+            text: commentText,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+          })
+        });
+        commentInput.value = ""; // Clear the input field
+        loadFeed(); // Reload feed to show new comment
+      } catch (error) {
+        console.error("Error adding comment:", error);
+        alert("Failed to add comment. Please try again.");
+      }
     }
 
-    async function loadComments(postId) {
-      const commentsDiv = document.getElementById(`comments-${postId}`);
-      const snap = await db.collection("posts").doc(postId).collection("comments").orderBy("timestamp").get();
-      commentsDiv.innerHTML = "";
-
-      snap.forEach(doc => {
-        const c = doc.data();
-        commentsDiv.innerHTML += `<div><img class="profile-pic" src="${c.profileImage}"> <strong>${c.username}</strong>: ${c.comment}</div>`;
-      });
-    }
-  </script></body>
+    // Initial load of the feed (will be empty or show login prompt if not logged in)
+    // The feed will fully load after successful authentication and profile creation.
+    loadFeed();
+  </script>
+</body>
 </html>
